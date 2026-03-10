@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>England Disability Prevalence Map</title>
+      <link
+        rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2310384c'/%3E%3Cpath d='M7 22h18' stroke='%23f2fdff' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M10 19c2.2-5.2 5.3-7.8 9.5-7.8 2 0 3.9.5 5.5 1.6' stroke='%231aa1a8' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='10' cy='19' r='2.6' fill='%23ff7c73'/%3E%3C/svg%3E"
+      />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@5.17.0/dist/maplibre-gl.css"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./data/app-data.js"></script>
+    <script defer src="https://unpkg.com/maplibre-gl@5.17.0/dist/maplibre-gl.js"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero-panel">
+        <div class="hero-signature" aria-label="Author credit">
+          <span class="hero-signature-label">Created by</span>
+          <strong>Dr Andrew Kingston PhD CStat SFHEA</strong>
+        </div>
+        <div class="hero-copy">
+          <p class="eyebrow">England | Census 2021</p>
+          <h1>Disability prevalence is not evenly shared across England.</h1>
+          <p class="hero-text">
+            This map shows how the share of residents disabled under the Equality Act changes
+            from one middle layer super output area to the next. Combine age groups, switch
+            between prevalence and gap mode, and zoom from the national picture into local
+            pockets of inequality.
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-pill">
+            <span class="stat-label">Coverage</span>
+            <strong>6,856 English MSOAs</strong>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-label">Interaction</span>
+            <strong>Zoom, hover, click, compare</strong>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-label">Source</span>
+            <strong>Nomis RM073 + ONS boundaries</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="control-panel">
+        <div class="control-block">
+          <div class="control-heading-row">
+            <div>
+              <p class="control-label">Map view</p>
+              <h2>Choose the story the colour scale tells</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button id="fullscreen-map" class="ghost-button" type="button">Full screen</button>
+              <button id="reset-view" class="ghost-button" type="button">Reset map</button>
+            </div>
+          </div>
+          <div id="mode-switch" class="segmented-control" role="tablist" aria-label="Map mode"></div>
+        </div>
+
+        <div class="control-block">
+          <div class="control-heading-row">
+            <div>
+              <p class="control-label">Age filter</p>
+              <h2>Select one, several, or all age groups</h2>
+            </div>
+            <div class="preset-actions">
+              <button class="preset-button" type="button" data-preset="all">All ages</button>
+              <button class="preset-button" type="button" data-preset="working">Working age</button>
+              <button class="preset-button" type="button" data-preset="older">Older ages</button>
+            </div>
+          </div>
+          <div id="age-summary" class="age-summary"></div>
+          <div id="age-chips" class="age-chip-grid" aria-label="Age groups"></div>
+        </div>
+      </section>
+
+      <section class="workspace-grid">
+        <div class="map-panel">
+          <div class="map-toolbar">
+            <div>
+              <p class="map-label">Current lens</p>
+              <h2 id="map-title">All age groups</h2>
+            </div>
+            <div id="legend" class="legend-card" aria-live="polite"></div>
+          </div>
+          <div class="map-stage">
+            <div id="map" class="map-frame" aria-label="Interactive 3D map of disability prevalence across England"></div>
+            <div class="map-overlay-stack">
+              <div id="height-note" class="map-note"></div>
+              <div id="map-readout" class="map-readout">
+                <p class="card-label">Map hover</p>
+                <h3 id="map-readout-name">England overview</h3>
+                <p id="map-readout-region" class="muted-text">Hover over an area to see its figures and region.</p>
+                <div class="map-readout-grid">
+                  <div>
+                    <span class="metric-label">Prevalence</span>
+                    <strong id="map-readout-rate">0%</strong>
+                  </div>
+                  <div>
+                    <span class="metric-label">Gap</span>
+                    <strong id="map-readout-gap">0 pp</strong>
+                  </div>
+                  <div>
+                    <span class="metric-label">Disabled</span>
+                    <strong id="map-readout-disabled">0</strong>
+                  </div>
+                  <div>
+                    <span class="metric-label">Population</span>
+                    <strong id="map-readout-total">0</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="map-footer-overlay">
+              <section id="story-panel" class="story-panel" aria-live="polite">
+                <p id="story-kicker" class="card-label">Story mode</p>
+                <h3 id="story-title">Massive inequality across England</h3>
+                <p id="story-body" class="muted-text">
+                  The map begins with a guided regional tour. Click, scroll, or use the controls
+                  to take over at any point.
+                </p>
+                <p id="story-progress" class="story-progress">Preparing guided tour</p>
+              </section>
+              <div class="map-control-cluster">
+                <button id="story-toggle" class="story-button story-primary" type="button">
+                  Pause story
+                </button>
+                <button id="rotate-left" class="story-button" type="button">Rotate left</button>
+                <button id="rotate-right" class="story-button" type="button">Rotate right</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sidebar">
+          <section class="info-card spotlight-card">
+            <p class="card-label">Focus area</p>
+            <h2 id="focus-name">England overview</h2>
+            <p id="focus-context" class="muted-text">
+              Hover over an area for a quick read, or click to lock the selection.
+            </p>
+            <div class="metric-row">
+              <div>
+                <span class="metric-label">Prevalence</span>
+                <strong id="focus-rate">0%</strong>
+              </div>
+              <div>
+                <span class="metric-label">Gap vs England</span>
+                <strong id="focus-gap">0 pp</strong>
+              </div>
+            </div>
+            <div class="metric-row compact-row">
+              <div>
+                <span class="metric-label">Disabled residents</span>
+                <strong id="focus-disabled">0</strong>
+              </div>
+              <div>
+                <span class="metric-label">Selected population</span>
+                <strong id="focus-total">0</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="info-card">
+            <p class="card-label">Inequality snapshot</p>
+            <h2>How far apart are places right now?</h2>
+            <div class="snapshot-grid">
+              <div class="snapshot-box">
+                <span class="metric-label">Highest region</span>
+                <strong id="highest-region-name">-</strong>
+                <span id="highest-region-rate" class="snapshot-note">-</span>
+              </div>
+              <div class="snapshot-box">
+                <span class="metric-label">Lowest region</span>
+                <strong id="lowest-region-name">-</strong>
+                <span id="lowest-region-rate" class="snapshot-note">-</span>
+              </div>
+              <div class="snapshot-box">
+                <span class="metric-label">Widest regional gap</span>
+                <strong id="regional-gap">-</strong>
+                <span class="snapshot-note">Difference between highest and lowest regional averages</span>
+              </div>
+              <div class="snapshot-box">
+                <span class="metric-label">Local extremes</span>
+                <strong id="local-extremes">-</strong>
+                <span id="local-extremes-note" class="snapshot-note">-</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="info-card ranking-card">
+            <div class="control-heading-row">
+              <div>
+                <p class="card-label">Regional ranking</p>
+                <h2>Average prevalence by region</h2>
+              </div>
+            </div>
+            <div id="region-list" class="region-list"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>
