@@ -28,24 +28,24 @@
           <p class="eyebrow">England | Census 2021</p>
           <h1>Disability prevalence is not evenly shared across England.</h1>
           <p class="hero-text">
-            This map shows how the share of residents disabled under the Equality Act changes
-            from one middle layer super output area to the next. Combine age groups, switch
-            between prevalence and gap mode, and zoom from the national picture into local
-            pockets of inequality.
+            Start with local authorities to see the national pattern clearly, then switch to
+            regions for the big headline or MSOAs for finer local texture. Combine age groups,
+            compare each place with the England average, and use the guided tour to show how
+            unequal the picture is.
           </p>
         </div>
         <div class="hero-stats">
           <div class="stat-pill">
             <span class="stat-label">Coverage</span>
-            <strong>6,856 English MSOAs</strong>
+            <strong>309 local authorities and 6,856 English MSOAs</strong>
           </div>
           <div class="stat-pill">
             <span class="stat-label">Interaction</span>
-            <strong>Zoom, hover, click, compare</strong>
+            <strong>Story, hover, click, compare, rotate</strong>
           </div>
           <div class="stat-pill">
             <span class="stat-label">Source</span>
-            <strong>Nomis RM073 + ONS boundaries</strong>
+            <strong>Nomis RM073 + ONS MSOA, LAD and region boundaries</strong>
           </div>
         </div>
       </section>
@@ -54,8 +54,19 @@
         <div class="control-block">
           <div class="control-heading-row">
             <div>
+              <p class="control-label">Geography</p>
+              <h2>Start at local authority, then switch to region or MSOA</h2>
+            </div>
+          </div>
+          <div id="geography-switch" class="segmented-control" role="tablist" aria-label="Map geography"></div>
+          <div id="geography-summary" class="age-summary"></div>
+        </div>
+
+        <div class="control-block">
+          <div class="control-heading-row">
+            <div>
               <p class="control-label">Map view</p>
-              <h2>Choose the story the colour scale tells</h2>
+              <h2>Keep the gap picture or switch to prevalence</h2>
             </div>
             <div class="toolbar-actions">
               <button id="fullscreen-map" class="ghost-button" type="button">Full screen</button>
@@ -86,8 +97,11 @@
         <div class="map-panel">
           <div class="map-toolbar">
             <div>
-              <p class="map-label">Current lens</p>
-              <h2 id="map-title">All age groups</h2>
+              <p class="map-label">Current view</p>
+              <h2 id="map-title">Gap vs England at local authority level</h2>
+              <p id="map-subtitle" class="muted-text map-subtitle">
+                All age groups selected. Hover or click a place to inspect its figures.
+              </p>
             </div>
             <div id="legend" class="legend-card" aria-live="polite"></div>
           </div>
@@ -96,7 +110,7 @@
             <div class="map-overlay-stack">
               <div id="height-note" class="map-note"></div>
               <div id="map-readout" class="map-readout">
-                <p class="card-label">Map hover</p>
+                <p id="map-readout-label" class="card-label">Map hover</p>
                 <h3 id="map-readout-name">England overview</h3>
                 <p id="map-readout-region" class="muted-text">Hover over an area to see its figures and region.</p>
                 <div class="map-readout-grid">
@@ -174,22 +188,22 @@
             <h2>How far apart are places right now?</h2>
             <div class="snapshot-grid">
               <div class="snapshot-box">
-                <span class="metric-label">Highest region</span>
+                <span id="highest-geo-label" class="metric-label">Highest place</span>
                 <strong id="highest-region-name">-</strong>
                 <span id="highest-region-rate" class="snapshot-note">-</span>
               </div>
               <div class="snapshot-box">
-                <span class="metric-label">Lowest region</span>
+                <span id="lowest-geo-label" class="metric-label">Lowest place</span>
                 <strong id="lowest-region-name">-</strong>
                 <span id="lowest-region-rate" class="snapshot-note">-</span>
               </div>
               <div class="snapshot-box">
-                <span class="metric-label">Widest regional gap</span>
+                <span id="geo-gap-label" class="metric-label">England spread</span>
                 <strong id="regional-gap">-</strong>
-                <span class="snapshot-note">Difference between highest and lowest regional averages</span>
+                <span id="geo-gap-note" class="snapshot-note">Difference between the highest and lowest places in the active geography</span>
               </div>
               <div class="snapshot-box">
-                <span class="metric-label">Local extremes</span>
+                <span id="regional-context-label" class="metric-label">Regional spread</span>
                 <strong id="local-extremes">-</strong>
                 <span id="local-extremes-note" class="snapshot-note">-</span>
               </div>
@@ -199,8 +213,8 @@
           <section class="info-card ranking-card">
             <div class="control-heading-row">
               <div>
-                <p class="card-label">Regional ranking</p>
-                <h2>Average prevalence by region</h2>
+                <p id="ranking-label" class="card-label">Ranking</p>
+                <h2 id="ranking-title">Highest disability prevalence in the active geography</h2>
               </div>
             </div>
             <div id="region-list" class="region-list"></div>

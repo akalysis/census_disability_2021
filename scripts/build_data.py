@@ -16,6 +16,10 @@ MSOA_SERVICE = (
     "https://services1.arcgis.com/ESMARspQHYMw9BZ9/ArcGIS/rest/services/"
     "Middle_layer_Super_Output_Areas_December_2021_Boundaries_EW_BSC_V3/FeatureServer/0"
 )
+LAD_SERVICE = (
+    "https://services1.arcgis.com/ESMARspQHYMw9BZ9/ArcGIS/rest/services/"
+    "Local_Authority_Districts_December_2021_UK_BGC_2022/FeatureServer/0"
+)
 REGION_SERVICE = (
     "https://services1.arcgis.com/ESMARspQHYMw9BZ9/ArcGIS/rest/services/"
     "Regions_December_2023_Boundaries_EN_BGC/FeatureServer/0"
@@ -174,6 +178,18 @@ def fetch_region_features():
     )["features"]
 
 
+def fetch_local_authority_features():
+    return fetch_json(
+        f"{LAD_SERVICE}/query",
+        {
+            "where": "LAD21CD like 'E%'",
+            "outFields": "LAD21CD,LAD21NM",
+            "returnGeometry": "true",
+            "f": "geojson",
+        },
+    )["features"]
+
+
 def point_in_ring(point, ring):
     x, y = point
     inside = False
@@ -204,11 +220,52 @@ def point_in_geometry(point, geometry):
     return False
 
 
-def assign_region(point, regions):
-    for region in regions:
-        if point_in_geometry(point, region["geometry"]):
-            return region["properties"]["RGN23CD"], region["properties"]["RGN23NM"]
-    raise ValueError(f"Could not assign region for point {point}.")
+def geometry_bounds(geometry):
+    min_x = float("inf")
+    min_y = float("inf")
+    max_x = float("-inf")
+    max_y = float("-inf")
+
+    def visit(coordinates):
+        nonlocal min_x, min_y, max_x, max_y
+        if isinstance(coordinates[0], (int, float)):
+            min_x = min(min_x, coordinates[0])
+            min_y = min(min_y, coordinates[1])
+            max_x = max(max_x, coordinates[0])
+            max_y = max(max_y, coordinates[1])
+            return
+        for entry in coordinates:
+            visit(entry)
+
+    visit(geometry["coordinates"])
+    return (min_x, min_y, max_x, max_y)
+
+
+def point_in_bounds(point, bounds):
+    x, y = point
+    min_x, min_y, max_x, max_y = bounds
+    return min_x <= x <= max_x and min_y <= y <= max_y
+
+
+def prepare_geographies(features, code_field, name_field):
+    return [
+        {
+            "code": feature["properties"][code_field],
+            "name": feature["properties"][name_field],
+            "geometry": feature["geometry"],
+            "bounds": geometry_bounds(feature["geometry"]),
+        }
+        for feature in features
+    ]
+
+
+def assign_geography(point, geometries):
+    for geography in geometries:
+        if not point_in_bounds(point, geography["bounds"]):
+            continue
+        if point_in_geometry(point, geography["geometry"]):
+            return geography["code"], geography["name"]
+    raise ValueError(f"Could not assign geography for point {point}.")
 
 
 def ring_area(ring):
@@ -256,8 +313,12 @@ def geometry_label_point(geometry):
     raise ValueError(f"Unsupported geometry type for label point: {geometry['type']}")
 
 
-def build_feature_collection(msoa_features, regions, counts_lookup):
+def build_feature_collection(msoa_features, regions, local_authorities, counts_lookup):
+    prepared_regions = prepare_geographies(regions, "RGN23CD", "RGN23NM")
+    prepared_local_authorities = prepare_geographies(local_authorities, "LAD21CD", "LAD21NM")
+
     region_totals = {}
+    local_authority_totals = {}
     england_disabled = None
     england_total = None
     joined = []
@@ -270,7 +331,8 @@ def build_feature_collection(msoa_features, regions, counts_lookup):
             continue
 
         point = (props["LONG"], props["LAT"])
-        region_code, region_name = assign_region(point, regions)
+        region_code, region_name = assign_geography(point, prepared_regions)
+        local_authority_code, local_authority_name = assign_geography(point, prepared_local_authorities)
         disabled = counts["disabled"]
         total = counts["total"]
 
@@ -290,6 +352,24 @@ def build_feature_collection(msoa_features, regions, counts_lookup):
         ]
         region_record["total"] = [left + right for left, right in zip(region_record["total"], total)]
 
+        local_authority_record = local_authority_totals.setdefault(
+            local_authority_code,
+            {
+                "code": local_authority_code,
+                "name": local_authority_name,
+                "regionCode": region_code,
+                "regionName": region_name,
+                "disabled": [0] * len(disabled),
+                "total": [0] * len(total),
+            },
+        )
+        local_authority_record["disabled"] = [
+            left + right for left, right in zip(local_authority_record["disabled"], disabled)
+        ]
+        local_authority_record["total"] = [
+            left + right for left, right in zip(local_authority_record["total"], total)
+        ]
+
         joined.append(
             {
                 "type": "Feature",
@@ -300,6 +380,8 @@ def build_feature_collection(msoa_features, regions, counts_lookup):
                     "n": counts["name"],
                     "r": region_name,
                     "rc": region_code,
+                    "la": local_authority_name,
+                    "lac": local_authority_code,
                     "d": disabled,
                     "t": total,
                 },
@@ -333,6 +415,72 @@ def build_feature_collection(msoa_features, regions, counts_lookup):
         ],
     }
 
+    local_authority_lookup = {record["code"]: record for record in local_authority_totals.values()}
+    local_authority_summaries = sorted(
+        local_authority_totals.values(),
+        key=lambda local_authority: (
+            REGION_ORDER.get(local_authority["regionName"], 99),
+            local_authority["name"],
+        ),
+    )
+
+    local_authority_boundaries = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": feature["geometry"],
+                "properties": {
+                    "code": feature["properties"]["LAD21CD"],
+                    "name": feature["properties"]["LAD21NM"],
+                    "r": local_authority_lookup[feature["properties"]["LAD21CD"]]["regionName"],
+                    "rc": local_authority_lookup[feature["properties"]["LAD21CD"]]["regionCode"],
+                },
+            }
+            for feature in sorted(
+                local_authorities,
+                key=lambda feature: (
+                    REGION_ORDER.get(
+                        local_authority_lookup[feature["properties"]["LAD21CD"]]["regionName"],
+                        99,
+                    ),
+                    feature["properties"]["LAD21NM"],
+                ),
+            )
+            if feature["properties"]["LAD21CD"] in local_authority_lookup
+        ],
+    }
+
+    local_authority_labels = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": geometry_label_point(feature["geometry"]),
+                },
+                "properties": {
+                    "code": feature["properties"]["LAD21CD"],
+                    "name": feature["properties"]["LAD21NM"],
+                    "r": local_authority_lookup[feature["properties"]["LAD21CD"]]["regionName"],
+                    "rc": local_authority_lookup[feature["properties"]["LAD21CD"]]["regionCode"],
+                },
+            }
+            for feature in sorted(
+                local_authorities,
+                key=lambda feature: (
+                    REGION_ORDER.get(
+                        local_authority_lookup[feature["properties"]["LAD21CD"]]["regionName"],
+                        99,
+                    ),
+                    feature["properties"]["LAD21NM"],
+                ),
+            )
+            if feature["properties"]["LAD21CD"] in local_authority_lookup
+        ],
+    }
+
     region_labels = {
         "type": "FeatureCollection",
         "features": [
@@ -359,6 +507,9 @@ def build_feature_collection(msoa_features, regions, counts_lookup):
 
     return {
         "msoas": {"type": "FeatureCollection", "features": joined},
+        "localAuthorityBoundaries": local_authority_boundaries,
+        "localAuthorityLabels": local_authority_labels,
+        "localAuthorities": local_authority_summaries,
         "regionBoundaries": region_boundaries,
         "regionLabels": region_labels,
         "regions": region_summaries,
@@ -375,6 +526,7 @@ def write_output(age_bands, collections):
             "source": [
                 "Nomis Census 2021 table RM073",
                 "ONS Open Geography MSOA 2021 boundaries",
+                "ONS Open Geography Local Authority Districts December 2021 boundaries",
                 "ONS Open Geography Regions December 2023 boundaries",
             ],
         },
@@ -392,8 +544,14 @@ def main():
     blocks = parse_blocks(rows)
     age_bands, counts_lookup = build_population_lookup(blocks)
     msoa_features = fetch_msoa_features()
+    local_authority_features = fetch_local_authority_features()
     region_features = fetch_region_features()
-    collections = build_feature_collection(msoa_features, region_features, counts_lookup)
+    collections = build_feature_collection(
+        msoa_features,
+        region_features,
+        local_authority_features,
+        counts_lookup,
+    )
     write_output(age_bands, collections)
     print(f"Wrote {OUTPUT_JS}")
 
