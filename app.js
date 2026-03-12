@@ -9,7 +9,7 @@ const MODE_CONFIG = {
     label: "Gap vs England",
     legendTitle: "Percentage-point gap from the England average",
     heightTitle: "3D height",
-    heightBody: "Taller forms show a larger departure from the England average at the selected geography.",
+    heightBody: "Glacier blues sit below the England average, ember reds sit above it, and taller forms show a larger departure.",
   },
   prevalence: {
     label: "Prevalence",
@@ -728,12 +728,13 @@ function percentilePosition(sortedValues, value) {
 
 function buildPrevalenceScale(values, geography) {
   const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
-  const palette = ["#f5fdff", "#dff5fa", "#c4ebf2", "#9cdde8", "#69c8da", "#2da7c2", "#147895", "#062f53"];
+  const palette = ["#fff9f1", "#ffeedb", "#ffd6af", "#ffb57b", "#ff8f52", "#f15d38", "#c92a35", "#77001f"];
   const maxRate = sorted[sorted.length - 1] || 0.25;
   const { prevalence: maxHeight, min: minHeight } = HEIGHT_LIMITS[geography];
 
   return {
     colors: samplePalette(palette, 9),
+    theme: "prevalence",
     colorFor(value) {
       if (!Number.isFinite(value)) {
         return "#d6dde0";
@@ -755,19 +756,19 @@ function buildPrevalenceScale(values, geography) {
 function buildGapScale(values, geography) {
   const finite = values.filter(Number.isFinite);
   const absolute = finite.map((value) => Math.abs(value)).sort((left, right) => left - right);
-  const negativeAbs = finite
-    .filter((value) => value < 0)
-    .map((value) => Math.abs(value))
-    .sort((left, right) => left - right);
-  const positive = finite.filter((value) => value > 0).sort((left, right) => left - right);
   const maxAbs = absolute[absolute.length - 1] || 0.01;
   const { gap: maxHeight, min: minHeight } = HEIGHT_LIMITS[geography];
-  const negativePalette = ["#072a55", "#0f4f7c", "#3f87b7", "#96c6dd"];
-  const neutral = "#f7f4ea";
-  const positivePalette = ["#ffd2b5", "#ffaf82", "#ff734d", "#bf2244"];
+  const negativePalette = ["#f2fbff", "#d6f3ff", "#7fd4ff", "#1f7fe0", "#091d6f"];
+  const neutral = "#fff8ef";
+  const positivePalette = ["#fff1dc", "#ffc879", "#ff7a35", "#ef3840", "#7a001f"];
 
   return {
-    colors: [...samplePalette(negativePalette, 4), neutral, ...samplePalette(positivePalette, 4)],
+    colors: [...samplePalette(negativePalette, 4).reverse(), neutral, ...samplePalette(positivePalette, 4)],
+    theme: "gap",
+    lowerPoleLabel: "Below England average",
+    midPoleLabel: "England average",
+    upperPoleLabel: "Above England average",
+    legendNote: "Cool glacier blues fall below the England average. Hot ember reds rise above it.",
     colorFor(value) {
       if (!Number.isFinite(value)) {
         return "#d6dde0";
@@ -775,10 +776,11 @@ function buildGapScale(values, geography) {
       if (Math.abs(value) < 0.0002) {
         return neutral;
       }
+      const intensity = clamp(Math.abs(value) / maxAbs, 0, 1);
       if (value < 0) {
-        return interpolatePalette(negativePalette, percentilePosition(negativeAbs, Math.abs(value)));
+        return interpolatePalette(negativePalette, intensity);
       }
-      return interpolatePalette(positivePalette, percentilePosition(positive, value));
+      return interpolatePalette(positivePalette, intensity);
     },
     heightFor(metric) {
       if (!Number.isFinite(metric.gap)) {
@@ -985,15 +987,38 @@ function updateRuntimeCollection(geography, scale) {
 }
 
 function renderLegend(scale) {
+  dom.legend.classList.toggle("legend-card-gap", state.mode === "gap");
   dom.legend.innerHTML = `
     <p class="legend-title">${MODE_CONFIG[state.mode].legendTitle}</p>
-    <div class="legend-scale" style="grid-template-columns: repeat(${scale.colors.length}, 1fr);">
-      ${scale.colors.map((color) => `<span class="legend-swatch" style="background:${color}"></span>`).join("")}
+    ${
+      state.mode === "gap"
+        ? `
+          <div class="legend-poles">
+            <span>${scale.lowerPoleLabel}</span>
+            <span>${scale.midPoleLabel}</span>
+            <span>${scale.upperPoleLabel}</span>
+          </div>
+        `
+        : ""
+    }
+    <div class="legend-scale ${state.mode === "gap" ? "difference-scale" : ""}" style="${
+      state.mode === "gap"
+        ? `background: linear-gradient(90deg, ${scale.colors
+            .map((color, index) => `${color} ${(index / (scale.colors.length - 1)) * 100}%`)
+            .join(", ")});`
+        : `grid-template-columns: repeat(${scale.colors.length}, 1fr);`
+    }">
+      ${
+        state.mode === "gap"
+          ? '<span class="legend-midpoint" aria-hidden="true"></span>'
+          : scale.colors.map((color) => `<span class="legend-swatch" style="background:${color}"></span>`).join("")
+      }
     </div>
     <div class="legend-labels">
       <span>${scale.lowLabel}</span>
       <span>${scale.highLabel}</span>
     </div>
+    ${scale.legendNote ? `<p class="legend-note">${scale.legendNote}</p>` : ""}
   `;
 
   dom.heightNote.innerHTML = `
