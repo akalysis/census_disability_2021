@@ -62,14 +62,14 @@ const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 const DEFAULT_VIEW = {
   center: [-2.45, 53.35],
   zoom: 5.78,
-  pitch: 54,
+  pitch: 62,
   bearing: 0,
 };
 
 const HEIGHT_LIMITS = {
-  msoa: { prevalence: 2400, gap: 2800, min: 40 },
-  lad: { prevalence: 5600, gap: 6200, min: 120 },
-  region: { prevalence: 8400, gap: 9600, min: 400 },
+  msoa: { prevalence: 18000, gap: 26000, min: 120 },
+  lad: { prevalence: 36000, gap: 52000, min: 280 },
+  region: { prevalence: 52000, gap: 76000, min: 900 },
 };
 
 const LAYER_GROUPS = {
@@ -82,6 +82,7 @@ const state = {
   selectedAgeIndices: new Set(PRESETS.all),
   mode: "gap",
   geography: "lad",
+  flatMode: false,
   hoveredCode: null,
   selectedCode: null,
   hoveredRegionCode: null,
@@ -116,7 +117,9 @@ const state = {
 };
 
 const dom = {
-  geographySwitch: document.querySelector("#geography-switch"),
+  geographySelect: document.querySelector("#geography-select"),
+  placeSelect: document.querySelector("#place-select"),
+  placeSelectLabel: document.querySelector("#place-select-label"),
   geographySummary: document.querySelector("#geography-summary"),
   modeSwitch: document.querySelector("#mode-switch"),
   ageChips: document.querySelector("#age-chips"),
@@ -140,6 +143,7 @@ const dom = {
   storyToggle: document.querySelector("#story-toggle"),
   rotateLeft: document.querySelector("#rotate-left"),
   rotateRight: document.querySelector("#rotate-right"),
+  reliefToggle: document.querySelector("#relief-toggle"),
   focusName: document.querySelector("#focus-name"),
   focusContext: document.querySelector("#focus-context"),
   focusRate: document.querySelector("#focus-rate"),
@@ -380,18 +384,18 @@ if (mapView) {
       source: "regions",
       paint: {
         "fill-extrusion-color": ["get", "fill"],
-        "fill-extrusion-height": heightExpression(4.7, 0.42, 6.2, 0.72, 8.2, 1),
+        "fill-extrusion-height": heightExpression(4.7, 0.78, 6.2, 1.02, 8.2, 1.16),
         "fill-extrusion-base": 0,
         "fill-extrusion-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           4.7,
-          0.72,
+          0.84,
           6.4,
-          0.88,
-          8.2,
           0.94,
+          8.2,
+          0.98,
         ],
         "fill-extrusion-vertical-gradient": true,
       },
@@ -423,18 +427,18 @@ if (mapView) {
       source: "lads",
       paint: {
         "fill-extrusion-color": ["get", "fill"],
-        "fill-extrusion-height": heightExpression(4.8, 0.34, 6.6, 0.72, 9.5, 1),
+        "fill-extrusion-height": heightExpression(4.8, 0.58, 6.6, 0.96, 9.5, 1.14),
         "fill-extrusion-base": 0,
         "fill-extrusion-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           4.8,
-          0.56,
+          0.72,
           6.8,
-          0.82,
+          0.9,
           9.6,
-          0.96,
+          0.98,
         ],
         "fill-extrusion-vertical-gradient": true,
       },
@@ -458,7 +462,7 @@ if (mapView) {
           11,
           0.85,
         ],
-        "line-opacity": 0.22,
+        "line-opacity": 0.06,
       },
     });
 
@@ -492,18 +496,18 @@ if (mapView) {
       minzoom: 5.2,
       paint: {
         "fill-extrusion-color": ["get", "fill"],
-        "fill-extrusion-height": heightExpression(5.2, 0.2, 7.2, 0.68, 10.8, 1),
+        "fill-extrusion-height": heightExpression(5.2, 0.3, 7.2, 0.86, 10.8, 1.1),
         "fill-extrusion-base": 0,
         "fill-extrusion-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           5.2,
-          0.34,
+          0.48,
           7.4,
-          0.76,
+          0.84,
           10.8,
-          0.96,
+          0.98,
         ],
         "fill-extrusion-vertical-gradient": true,
       },
@@ -527,40 +531,46 @@ if (mapView) {
           11.4,
           0.58,
         ],
-        "line-opacity": 0.18,
+        "line-opacity": 0.04,
       },
     });
 
     mapView.addLayer({
       id: "hover-outline",
-      type: "line",
+      type: "fill-extrusion",
       source: "hover-feature",
       paint: {
-        "line-color": "#f7feff",
-        "line-width": 2.4,
-        "line-opacity": 0.95,
+        "fill-extrusion-color": "#f8feff",
+        "fill-extrusion-height": ["+", ["coalesce", ["get", "height"], 0], 420],
+        "fill-extrusion-base": 0,
+        "fill-extrusion-opacity": 0.22,
+        "fill-extrusion-vertical-gradient": false,
       },
     });
 
     mapView.addLayer({
       id: "selection-outline",
-      type: "line",
+      type: "fill-extrusion",
       source: "selection-feature",
       paint: {
-        "line-color": "#0d6f73",
-        "line-width": 3,
-        "line-opacity": 0.95,
+        "fill-extrusion-color": "#ffffff",
+        "fill-extrusion-height": ["+", ["coalesce", ["get", "height"], 0], 720],
+        "fill-extrusion-base": 0,
+        "fill-extrusion-opacity": 0.28,
+        "fill-extrusion-vertical-gradient": false,
       },
     });
 
     mapView.addLayer({
       id: "region-hover-outline",
-      type: "line",
+      type: "fill-extrusion",
       source: "region-hover-feature",
       paint: {
-        "line-color": "#f8feff",
-        "line-width": 2.8,
-        "line-opacity": 0.96,
+        "fill-extrusion-color": "#f9fffe",
+        "fill-extrusion-height": ["+", ["coalesce", ["get", "height"], 0], 960],
+        "fill-extrusion-base": 0,
+        "fill-extrusion-opacity": 0.18,
+        "fill-extrusion-vertical-gradient": false,
       },
     });
 
@@ -632,27 +642,103 @@ function uniqueAscending(values) {
     .map((value) => Number(value.toFixed(6)));
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function hexToRgb(hex) {
+  const value = hex.replace("#", "");
+  const normalised = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
+  return {
+    r: parseInt(normalised.slice(0, 2), 16),
+    g: parseInt(normalised.slice(2, 4), 16),
+    b: parseInt(normalised.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  return `#${[r, g, b]
+    .map((value) => Math.round(clamp(value, 0, 255)).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function mixColor(leftHex, rightHex, weight) {
+  const left = hexToRgb(leftHex);
+  const right = hexToRgb(rightHex);
+  const clampedWeight = clamp(weight, 0, 1);
+  return rgbToHex({
+    r: left.r + (right.r - left.r) * clampedWeight,
+    g: left.g + (right.g - left.g) * clampedWeight,
+    b: left.b + (right.b - left.b) * clampedWeight,
+  });
+}
+
+function interpolatePalette(stops, value) {
+  if (value <= 0) {
+    return stops[0];
+  }
+  if (value >= 1) {
+    return stops[stops.length - 1];
+  }
+
+  const scaled = value * (stops.length - 1);
+  const lower = Math.floor(scaled);
+  const upper = Math.min(stops.length - 1, Math.ceil(scaled));
+  if (lower === upper) {
+    return stops[lower];
+  }
+
+  return mixColor(stops[lower], stops[upper], scaled - lower);
+}
+
+function samplePalette(stops, count) {
+  return Array.from({ length: count }, (_, index) =>
+    interpolatePalette(stops, count === 1 ? 0 : index / (count - 1))
+  );
+}
+
+function percentilePosition(sortedValues, value) {
+  if (!sortedValues.length) {
+    return 0;
+  }
+  if (value <= sortedValues[0]) {
+    return 0;
+  }
+  if (value >= sortedValues[sortedValues.length - 1]) {
+    return 1;
+  }
+
+  let low = 0;
+  let high = sortedValues.length - 1;
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (sortedValues[middle] <= value) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+
+  const left = sortedValues[low];
+  const right = sortedValues[high];
+  const span = right - left || 1e-12;
+  const offset = (value - left) / span;
+  return clamp((low + offset) / (sortedValues.length - 1), 0, 1);
+}
+
 function buildPrevalenceScale(values, geography) {
   const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
-  const thresholds = uniqueAscending([
-    quantile(sorted, 0.15),
-    quantile(sorted, 0.35),
-    quantile(sorted, 0.55),
-    quantile(sorted, 0.75),
-    quantile(sorted, 0.9),
-  ]);
-  const colors = ["#eefbfc", "#cdeff2", "#8fd9df", "#46afbf", "#176f8c", "#0a3552"];
+  const palette = ["#f5fdff", "#dff5fa", "#c4ebf2", "#9cdde8", "#69c8da", "#2da7c2", "#147895", "#062f53"];
   const maxRate = sorted[sorted.length - 1] || 0.25;
   const { prevalence: maxHeight, min: minHeight } = HEIGHT_LIMITS[geography];
 
   return {
-    colors,
+    colors: samplePalette(palette, 9),
     colorFor(value) {
       if (!Number.isFinite(value)) {
         return "#d6dde0";
       }
-      const index = thresholds.findIndex((threshold) => value <= threshold);
-      return colors[index === -1 ? colors.length - 1 : index];
+      return interpolatePalette(palette, percentilePosition(sorted, value));
     },
     heightFor(metric) {
       if (!Number.isFinite(metric.rate)) {
@@ -667,43 +753,32 @@ function buildPrevalenceScale(values, geography) {
 }
 
 function buildGapScale(values, geography) {
-  const absolute = values
-    .filter(Number.isFinite)
+  const finite = values.filter(Number.isFinite);
+  const absolute = finite.map((value) => Math.abs(value)).sort((left, right) => left - right);
+  const negativeAbs = finite
+    .filter((value) => value < 0)
     .map((value) => Math.abs(value))
     .sort((left, right) => left - right);
-
-  const t1 = Math.max(quantile(absolute, 0.45), 0.002);
-  const t2 = Math.max(quantile(absolute, 0.7), t1 + 0.0015);
-  const t3 = Math.max(quantile(absolute, 0.9), t2 + 0.0015);
-  const maxAbs = absolute[absolute.length - 1] || t3 || 0.01;
+  const positive = finite.filter((value) => value > 0).sort((left, right) => left - right);
+  const maxAbs = absolute[absolute.length - 1] || 0.01;
   const { gap: maxHeight, min: minHeight } = HEIGHT_LIMITS[geography];
-  const colors = ["#0a4069", "#2c739f", "#8dc5d6", "#f6f5ee", "#ffc5aa", "#ff8d74", "#d6495f"];
+  const negativePalette = ["#072a55", "#0f4f7c", "#3f87b7", "#96c6dd"];
+  const neutral = "#f7f4ea";
+  const positivePalette = ["#ffd2b5", "#ffaf82", "#ff734d", "#bf2244"];
 
   return {
-    colors,
+    colors: [...samplePalette(negativePalette, 4), neutral, ...samplePalette(positivePalette, 4)],
     colorFor(value) {
       if (!Number.isFinite(value)) {
         return "#d6dde0";
       }
-      if (value <= -t3) {
-        return colors[0];
+      if (Math.abs(value) < 0.0002) {
+        return neutral;
       }
-      if (value <= -t2) {
-        return colors[1];
+      if (value < 0) {
+        return interpolatePalette(negativePalette, percentilePosition(negativeAbs, Math.abs(value)));
       }
-      if (value <= -t1) {
-        return colors[2];
-      }
-      if (value < t1) {
-        return colors[3];
-      }
-      if (value < t2) {
-        return colors[4];
-      }
-      if (value < t3) {
-        return colors[5];
-      }
-      return colors[6];
+      return interpolatePalette(positivePalette, percentilePosition(positive, value));
     },
     heightFor(metric) {
       if (!Number.isFinite(metric.gap)) {
@@ -712,8 +787,8 @@ function buildGapScale(values, geography) {
       const normalised = maxAbs > 0 ? Math.abs(metric.gap) / maxAbs : 0;
       return minHeight + normalised * (maxHeight - minHeight);
     },
-    lowLabel: formatPp(-(t3 || 0)),
-    highLabel: formatPp(t3 || 0),
+    lowLabel: formatPp(finite.length ? Math.min(...finite) : -maxAbs),
+    highLabel: formatPp(finite.length ? Math.max(...finite) : maxAbs),
   };
 }
 
@@ -901,7 +976,8 @@ function updateRuntimeCollection(geography, scale) {
     const metric = state.metricsByGeography[geography].get(feature.properties.code);
     const renderValue = state.mode === "gap" ? metric?.gap : metric?.rate;
     feature.properties.fill = scale.colorFor(renderValue);
-    feature.properties.height = Number(scale.heightFor(metric).toFixed(2));
+    const height = state.flatMode ? 0 : scale.heightFor(metric);
+    feature.properties.height = Number(height.toFixed(2));
     feature.properties.rateValue = Number.isFinite(metric?.rate) ? Number(metric.rate.toFixed(6)) : null;
     feature.properties.gapValue = Number.isFinite(metric?.gap) ? Number(metric.gap.toFixed(6)) : null;
     feature.properties.renderValue = Number.isFinite(renderValue) ? Number(renderValue.toFixed(6)) : null;
@@ -932,6 +1008,46 @@ function getActiveMetricsMap() {
 
 function getActiveMetricsList() {
   return state.sortedMetricsByGeography[state.geography];
+}
+
+function getMetricDisplayName(metric, options = {}) {
+  if (!metric) {
+    return "England overview";
+  }
+
+  const { picker = false, includeRegion = false } = options;
+
+  if (metric.geography === "msoa") {
+    if (picker) {
+      return `${metric.localAuthorityName} | ${metric.name} | ${metric.regionName}`;
+    }
+    if (includeRegion) {
+      return `${metric.name} | ${metric.localAuthorityName}, ${metric.regionName}`;
+    }
+    return `${metric.name} | ${metric.localAuthorityName}`;
+  }
+
+  if (metric.geography === "lad" && includeRegion) {
+    return `${metric.name} | ${metric.regionName}`;
+  }
+
+  return metric.name;
+}
+
+function getPlacePickerPrompt() {
+  if (state.geography === "msoa") {
+    return "Jump to MSOA";
+  }
+  if (state.geography === "lad") {
+    return "Jump to local authority";
+  }
+  return "Jump to region";
+}
+
+function getSelectableMetrics(geography) {
+  return [...state.metricsByGeography[geography].values()].sort((left, right) =>
+    getMetricDisplayName(left, { picker: true }).localeCompare(getMetricDisplayName(right, { picker: true }))
+  );
 }
 
 function getActiveMetric() {
@@ -1010,7 +1126,7 @@ function getMetricReadoutContext(metric) {
 
 function writeMetricToReadout(metric, label, contextText) {
   dom.mapReadoutLabel.textContent = label;
-  dom.mapReadoutName.textContent = metric.name;
+  dom.mapReadoutName.textContent = getMetricDisplayName(metric);
   dom.mapReadoutRegion.textContent = contextText;
   dom.mapReadoutRate.textContent = formatPercent(metric.rate);
   dom.mapReadoutGap.textContent = formatPp(metric.gap || 0);
@@ -1055,7 +1171,7 @@ function renderFocusCard() {
     contextText = `${hierarchy}. Click to keep this place in focus.`;
   }
 
-  dom.focusName.textContent = metric.name;
+  dom.focusName.textContent = getMetricDisplayName(metric);
   dom.focusContext.textContent = contextText;
   dom.focusRate.textContent = formatPercent(metric.rate);
   dom.focusGap.textContent = formatPp(metric.gap || 0);
@@ -1080,12 +1196,12 @@ function renderSnapshotCard() {
   dom.geoGapNote.textContent = `Difference between the highest and lowest ${geo.plural} in England`;
   dom.regionalContextLabel.textContent = "Regional spread";
 
-  dom.highestRegionName.textContent = extremes?.highest ? extremes.highest.name : "-";
+  dom.highestRegionName.textContent = extremes?.highest ? getMetricDisplayName(extremes.highest) : "-";
   dom.highestRegionRate.textContent = extremes?.highest
     ? `${formatPercent(extremes.highest.rate)} | ${formatPp(extremes.highest.gap)}`
     : "-";
 
-  dom.lowestRegionName.textContent = extremes?.lowest ? extremes.lowest.name : "-";
+  dom.lowestRegionName.textContent = extremes?.lowest ? getMetricDisplayName(extremes.lowest) : "-";
   dom.lowestRegionRate.textContent = extremes?.lowest
     ? `${formatPercent(extremes.lowest.rate)} | ${formatPp(extremes.lowest.gap)}`
     : "-";
@@ -1130,6 +1246,38 @@ function focusMetric(metric, options = {}) {
   });
 }
 
+function syncSelectionControls() {
+  if (dom.geographySelect) {
+    dom.geographySelect.value = state.geography;
+  }
+  if (dom.placeSelect) {
+    const activeCode = state.selectedCode && getActiveMetricsMap().has(state.selectedCode) ? state.selectedCode : "";
+    dom.placeSelect.value = activeCode;
+  }
+}
+
+function selectMetric(metric, options = {}) {
+  if (!metric) {
+    return;
+  }
+
+  const { lngLat = null, focus = true } = options;
+  state.selectedCode = metric.code;
+  state.hoveredCode = metric.code;
+  state.hoveredRegionCode = null;
+  syncHighlightSources();
+  renderPanels();
+
+  if (focus) {
+    focusMetric(metric);
+  }
+
+  if (popup && mapView) {
+    const anchor = lngLat || centreOfBounds(boundsByGeography[metric.geography].get(metric.code));
+    popup.setLngLat(anchor).setHTML(buildPopupMarkup(metric)).addTo(mapView);
+  }
+}
+
 function renderRankingCard() {
   const geo = GEOGRAPHY_CONFIG[state.geography];
   const metrics = getActiveMetricsList();
@@ -1144,7 +1292,6 @@ function renderRankingCard() {
       const activeClass = metric.code === state.selectedCode || metric.code === state.hoveredCode ? "active" : "";
       const metaParts = [formatPp(metric.gap)];
       if (metric.geography === "msoa") {
-        metaParts.push(metric.localAuthorityName);
         metaParts.push(metric.regionName);
       } else if (metric.geography === "lad") {
         metaParts.push(metric.regionName);
@@ -1152,7 +1299,7 @@ function renderRankingCard() {
       return `
         <button class="region-row ${activeClass}" type="button" data-rank-code="${metric.code}">
           <div class="region-row-header">
-            <span class="region-name">${escapeHtml(metric.name)}</span>
+            <span class="region-name">${escapeHtml(getMetricDisplayName(metric))}</span>
             <span class="region-name">${formatPercent(metric.rate)}</span>
           </div>
           <div class="region-bar-track">
@@ -1172,15 +1319,7 @@ function renderRankingCard() {
       if (!metric) {
         return;
       }
-      state.selectedCode = code;
-      state.hoveredCode = code;
-      state.hoveredRegionCode = null;
-      syncHighlightSources();
-      renderPanels();
-      focusMetric(metric);
-      if (popup && mapView) {
-        popup.setLngLat(centreOfBounds(boundsByGeography[metric.geography].get(metric.code))).setHTML(buildPopupMarkup(metric)).addTo(mapView);
-      }
+      selectMetric(metric);
     });
   });
 }
@@ -1209,18 +1348,29 @@ function renderStoryPanel() {
   dom.storyTitle.textContent = state.storyHasAutoStarted || state.userInteracted ? "You are in control now" : "Story mode is ready";
   dom.storyBody.textContent =
     state.storyHasAutoStarted || state.userInteracted
-      ? "Use the geography switch, age filters, and rotate buttons to explore, or press Tell the story to replay the guided tour."
+      ? "Use the geography and place dropdowns, age filters, and rotate buttons to explore, or press Tell the story to replay the guided tour."
       : "The map will open with a guided regional tour unless you take over first.";
   dom.storyProgress.textContent = state.storyHasAutoStarted || state.userInteracted ? "Free exploration" : "Auto tour armed";
   dom.storyToggle.textContent = "Tell the story";
 }
 
+function renderMapControls() {
+  if (!dom.reliefToggle) {
+    return;
+  }
+
+  dom.reliefToggle.textContent = state.flatMode ? "3D map" : "Flat map";
+  dom.reliefToggle.classList.toggle("story-primary", state.flatMode);
+}
+
 function renderPanels() {
+  syncSelectionControls();
   renderMapReadout();
   renderFocusCard();
   renderSnapshotCard();
   renderRankingCard();
   renderStoryPanel();
+  renderMapControls();
 }
 
 function renderModeButtons() {
@@ -1247,44 +1397,23 @@ function renderModeButtons() {
   });
 }
 
-function renderGeographyButtons() {
-  dom.geographySwitch.innerHTML = ["lad", "region", "msoa"]
+function renderSelectionControls() {
+  dom.geographySelect.innerHTML = ["lad", "region", "msoa"]
     .map((geography) => {
       const config = GEOGRAPHY_CONFIG[geography];
-      return `
-        <button class="segment-button ${state.geography === geography ? "active" : ""}" type="button" data-geography="${geography}">
-          ${config.label}
-        </button>
-      `;
+      return `<option value="${geography}">${config.label}</option>`;
     })
     .join("");
 
+  dom.placeSelectLabel.textContent = getPlacePickerPrompt();
   dom.geographySummary.textContent = GEOGRAPHY_CONFIG[state.geography].summary;
-
-  dom.geographySwitch.querySelectorAll("[data-geography]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const nextGeography = button.getAttribute("data-geography");
-      if (nextGeography === state.geography) {
-        return;
-      }
-      markUserInteracted();
-      state.geography = nextGeography;
-      state.hoveredCode = null;
-      state.selectedCode = null;
-      state.hoveredRegionCode = null;
-      popup?.remove();
-      update();
-
-      if (mapView && nextGeography === "region") {
-        fitBoundsWithAngle(englandBounds, {
-          padding: { top: 64, right: 64, bottom: 80, left: 64 },
-          maxZoom: DEFAULT_VIEW.zoom,
-          duration: 900,
-          preserveBearing: true,
-        });
-      }
-    });
-  });
+  dom.placeSelect.innerHTML = `
+    <option value="">Choose ${GEOGRAPHY_CONFIG[state.geography].noun}</option>
+    ${getSelectableMetrics(state.geography)
+      .map((metric) => `<option value="${metric.code}">${escapeHtml(getMetricDisplayName(metric, { picker: true }))}</option>`)
+      .join("")}
+  `;
+  syncSelectionControls();
 }
 
 function renderAgeChips() {
@@ -1414,7 +1543,7 @@ function buildPopupMarkup(metric) {
 
   return `
     <p class="popup-kicker">${kicker}</p>
-    <h4>${escapeHtml(metric.name)}</h4>
+    <h4>${escapeHtml(getMetricDisplayName(metric, { includeRegion: true }))}</h4>
     <div class="popup-metrics">
       <div>
         <span class="popup-metric-label">Prevalence</span>
@@ -1608,7 +1737,7 @@ function rotateMap(step) {
   markUserInteracted();
   mapView.easeTo({
     bearing: mapView.getBearing() + step,
-    pitch: mapView.getPitch(),
+    pitch: state.flatMode ? 0 : mapView.getPitch(),
     duration: 720,
   });
 }
@@ -1779,6 +1908,53 @@ function syncLayerVisibility() {
 }
 
 function attachStaticEvents() {
+  dom.geographySelect.addEventListener("change", () => {
+    const nextGeography = dom.geographySelect.value;
+    if (!nextGeography || nextGeography === state.geography) {
+      syncSelectionControls();
+      return;
+    }
+
+    markUserInteracted();
+    state.geography = nextGeography;
+    state.hoveredCode = null;
+    state.selectedCode = null;
+    state.hoveredRegionCode = null;
+    popup?.remove();
+    update();
+
+    if (mapView && nextGeography === "region") {
+      fitBoundsWithAngle(englandBounds, {
+        padding: { top: 64, right: 64, bottom: 80, left: 64 },
+        maxZoom: DEFAULT_VIEW.zoom,
+        duration: 900,
+        preserveBearing: true,
+      });
+    }
+  });
+
+  dom.placeSelect.addEventListener("change", () => {
+    const code = dom.placeSelect.value;
+    markUserInteracted();
+
+    if (!code) {
+      state.selectedCode = null;
+      state.hoveredCode = null;
+      state.hoveredRegionCode = null;
+      popup?.remove();
+      syncHighlightSources();
+      renderPanels();
+      return;
+    }
+
+    const metric = getActiveMetricsMap().get(code);
+    if (!metric) {
+      return;
+    }
+
+    selectMetric(metric);
+  });
+
   dom.presetButtons.forEach((button) => {
     button.addEventListener("click", () => {
       markUserInteracted();
@@ -1830,6 +2006,18 @@ function attachStaticEvents() {
 
   dom.rotateLeft.addEventListener("click", () => rotateMap(-36));
   dom.rotateRight.addEventListener("click", () => rotateMap(36));
+  dom.reliefToggle.addEventListener("click", () => {
+    markUserInteracted();
+    state.flatMode = !state.flatMode;
+    update();
+
+    if (mapView) {
+      mapView.easeTo({
+        pitch: state.flatMode ? 0 : DEFAULT_VIEW.pitch,
+        duration: 850,
+      });
+    }
+  });
 
   document.addEventListener("fullscreenchange", () => {
     dom.fullscreenMap.textContent =
@@ -1867,7 +2055,7 @@ function update() {
   }
 
   computeMetrics();
-  renderGeographyButtons();
+  renderSelectionControls();
   renderModeButtons();
   renderAgeChips();
   renderPanels();
@@ -1891,7 +2079,7 @@ try {
 
   attachStaticEvents();
   computeMetrics();
-  renderGeographyButtons();
+  renderSelectionControls();
   renderModeButtons();
   renderAgeChips();
   renderPanels();

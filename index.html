@@ -21,8 +21,11 @@
     <main class="page-shell">
       <section class="hero-panel">
         <div class="hero-signature" aria-label="Author credit">
-          <span class="hero-signature-label">Created by</span>
-          <strong>Dr Andrew Kingston PhD CStat SFHEA</strong>
+          <div class="hero-signature-stack">
+            <span class="hero-signature-label">Created by</span>
+            <strong>Dr Andrew Kingston PhD CStat SFHEA</strong>
+          </div>
+          <a class="hero-signature-email" href="mailto:drandrewkingston@gmail.com">drandrewkingston@gmail.com</a>
         </div>
         <div class="hero-copy">
           <p class="eyebrow">England | Census 2021</p>
@@ -58,7 +61,16 @@
               <h2>Start at local authority, then switch to region or MSOA</h2>
             </div>
           </div>
-          <div id="geography-switch" class="segmented-control" role="tablist" aria-label="Map geography"></div>
+          <div class="selector-grid">
+            <label class="control-field" for="geography-select">
+              <span class="metric-label">Geography</span>
+              <select id="geography-select" class="control-select" aria-label="Choose geography"></select>
+            </label>
+            <label class="control-field" for="place-select">
+              <span id="place-select-label" class="metric-label">Jump to place</span>
+              <select id="place-select" class="control-select" aria-label="Choose place"></select>
+            </label>
+          </div>
           <div id="geography-summary" class="age-summary"></div>
         </div>
 
@@ -149,6 +161,7 @@
                 </button>
                 <button id="rotate-left" class="story-button" type="button">Rotate left</button>
                 <button id="rotate-right" class="story-button" type="button">Rotate right</button>
+                <button id="relief-toggle" class="story-button" type="button">Flat map</button>
               </div>
             </div>
           </div>
